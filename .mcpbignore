@@ -1,0 +1,12 @@
+# lo que el bundle MCPB NO debe llevar (server.py + manifest + pyproject + README quedan)
+.git/
+.gitignore
+.venv/
+__pycache__/
+*.py[cod]
+dist/
+scripts/
+assets/
+.mcpbignore
+LICENSE
+uv.lock

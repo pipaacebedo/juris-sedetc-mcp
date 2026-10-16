@@ -1,0 +1,14 @@
+# ignore de compilado python
+__pycache__/
+*.py[cod]
+
+# venv local
+.venv/
+
+# dist del builder (el bundle NO se commitea en el repo: se sube a Releases)
+dist/
+
+# temporales
+*.log
+.DS_Store
+Thumbs.db

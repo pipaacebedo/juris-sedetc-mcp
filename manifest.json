@@ -1,0 +1,90 @@
+{
+  "manifest_version": "0.4",
+  "name": "tc-juris-mcp",
+  "display_name": "Jurisprudencia del Tribunal Constitucional (No oficial)",
+  "version": "0.1.4",
+  "description": "MCP local para la sistematizacion jurisprudencial del Tribunal Constitucional del Peru (jurisprudencia.sedetc.gob.pe). No oficial.",
+  "long_description": "Servidor MCP local para la Sistematizacion Jurisprudencial del Tribunal Constitucional del Peru. Busqueda en TEXTO COMPLETO (Elasticsearch del TC, con comodin '*'; el servidor normaliza tildes porque el indice no matchea acentos), busqueda AVANZADA con todos los filtros del portal (expediente, demandante/demandado, fecha exacta o RANGO, sentido, distrito, sala, tipo, palabras claves por id), resultados por SISTEMATIZACION (precedentes vinculantes, tipos de proceso) y por TESAURO de conceptos (sentencias/autos/interlocutorias, con arboles y counts), catalogos EXACTOS (224 tipos, 115 distritos, 5 salas, 417 sentidos, 29603 palabras claves), ficha completa por slug con fundamentos COMPLETOS (nunca truncados) y descarga del PDF publicado por el TC (cap declarado 20 MB, nunca truncamiento silencioso). Cada respuesta trae 'ms'; toda tool responde (o error {ok, error, pista}) dentro de TCJ_TOOL_TIMEOUT=300 s; index GLOBAL 0-based continuo entre paginas (10 filas por pagina). Los bugs verificados del backend del TC estan documentados en las instrucciones y reportados en 'nota' (search+distrito=0; cap ES >= 10000; tesauro_inter vacio). Proyecto NO oficial, Apache-2.0.",
+  "author": {
+    "name": "pipaacebedo",
+    "url": "https://github.com/pipaacebedo"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pipaacebedo/tc-juris-mcp.git"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "peru",
+    "constitucional",
+    "tribunal-constitucional",
+    "jurisprudencia",
+    "sentencias",
+    "tesauro",
+    "sistematizacion",
+    "legal",
+    "mcp"
+  ],
+  "server": {
+    "type": "uv",
+    "entry_point": "server.py",
+    "mcp_config": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "${__dirname}",
+        "server.py"
+      ]
+    }
+  },
+  "tools": [
+    {
+      "name": "buscar_sentencias",
+      "description": "Busqueda por TEXTO COMPLETO en todas las resoluciones del TC (indice Elasticsearch; normaliza tildes, comodin '*'; cap ES >= 10000)"
+    },
+    {
+      "name": "busqueda_avanzada",
+      "description": "Busqueda avanzada: expediente, partes, fecha exacta o rango, sentido, distrito, sala, tipo y palabras claves por id (ids o nombres exactos)"
+    },
+    {
+      "name": "resultados_sistematizacion",
+      "description": "Resultados por sistematizacion tematica del TC (precedentes vinculantes, tipos de proceso) con texto/expediente adicionales"
+    },
+    {
+      "name": "resultados_tesauro",
+      "description": "Resultados por concepto del tesaurio del TC (sentencias/autos/interlocutorias) con ids del arbol"
+    },
+    {
+      "name": "detalle_sentencia",
+      "description": "Ficha completa por slug: metadatos, tesaurio y fundamentos COMPLETOS (nunca truncados) + URL del PDF"
+    },
+    {
+      "name": "descargar_pdf",
+      "description": "Descarga el PDF publicado por el TC a la carpeta de descargas (cap 20 MB declarado; nunca trunca)"
+    },
+    {
+      "name": "listar_filtros",
+      "description": "Catalogos exactos: tipos (224), distritos (115), salas (5), sentidos (417 con patron ES), tipos de tesaurio"
+    },
+    {
+      "name": "listar_tesauro",
+      "description": "Arboles del tesaurio con counts por nodo (sentencias/autos/interlocutorias)"
+    },
+    {
+      "name": "listar_sistematizaciones",
+      "description": "Arbol de sistematizacion del TC (6 ramas con children por nodo)"
+    },
+    {
+      "name": "listar_palabras",
+      "description": "Catalogo de 29603 palabras claves con filtro local por letra/contiene (feeds busqueda_avanzada)"
+    }
+  ],
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ]
+  }
+}
