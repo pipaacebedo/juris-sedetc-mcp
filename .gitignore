@@ -5,8 +5,15 @@ __pycache__/
 # venv local
 .venv/
 
-# dist del builder (el bundle NO se commitea en el repo: se sube a Releases)
-dist/
+# dist: el bundle MCPB SI se commitea (asset unico de Releases)
+dist/*
+!dist/*.mcpb
+
+# scripts de QA/probes: SIEMPRE privados (no van al repo)
+scripts/
+
+# lock de uv: regenerable (no se publica)
+uv.lock
 
 # temporales
 *.log
