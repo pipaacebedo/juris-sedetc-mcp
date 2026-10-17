@@ -35,7 +35,7 @@ UPDATE_CHECK = os.getenv("TCJ_UPDATE_CHECK", "1").strip() not in ("0", "false", 
 TAM_PAGINA = 10  # ambos motores sirven 10 filas por vista (verificado)
 MAX_PAGINAS_MOTOR = 1000  # cap IDENTICO en ambos motores (verificado)
 
-_REPO_GITHUB = "pipaacebedo/tc-juris-mcp"
+_REPO_GITHUB = "pipaacebedo/juris-sedetc-mcp"
 _VERSION = "0.0.0"
 try:
     _VERSION = str(json.loads(
@@ -86,14 +86,14 @@ INSTRUCCIONES = (
 3 DOCUMENTOS - cada fila y cada ficha trae 'url_pdf' (URL PUBLICA del PDF del TC, resuelta por el server tambien para el inventario historico): descarga con tu tool de fetch/descarga; los PDFs son publicos y directos. El server nunca guarda archivos.
 BUGS VERIFICADOS del backend del TC (no son del server): (i) search+id_sentencia_distrito juntos devuelven 0 aunque por separado funcionen; (ii) el buscador simple a veces devuelve el cap '>= 10000' para busquedas amplias: afina con busqueda_avanzada; (iii) 'tesauro_inter' (interlocutorias) esta vacio en el backend (counts 0); (iv) COMILLAS NO: una frase entre comillas en el buscador simple dispara el cap '>= 10000' (el server quitara las comillas y buscara la frase sin ellas; el indice NO soporta frases exactas); (v) FECHA EXACTA = ANIO: '2020-01-01' degrada al ano 2020 COMPLETO (136 = rango '2020-01-01,2020-12-31'); para un dia usa rango 'D,D'; (vi) numero_expediente funciona PARCIAL por subcadena ('00148' agrupa 00148-2026-HC, 00148-2025-AA...); (vii) 'palabras' multiples son OR (union), no AND; (viii) 'count_subarbol' de listar_tesauro es acumulado del subarbol y NO es el 'total' directo de resultados_tesauro (hoja si cuadra; nodo agregado difiere: ej raiz 63493 vs 7); (ix) el 'search' de resultados_sistematizacion opera sobre el TEXTO del fallo, no sobre nombres de partes (usa busqueda_avanzada con nombre_demandante); (x) el corpus contiene fechas espurias '1969-12-31' (epoch 0 del backend): desconfia de fechas de sentencia de 1969; (xi) el 'code' de los nodos del tesauro puede no cuadrar con su posicion en el arbol (dato upstream del TC): navega por 'id'; (xii) el filtro id_sentencia_distrito SOLO puede NO aplicarse en el backend (estres v3: id 3 devolvio filas de otros distritos): combina con fecha_publicacion/search/tipo/sala o confirma el campo 'distrito' de cada fila; (xiii) el catalogo de distritos incluye filas ESPURIAS upstream (nombres tipo '09-06-2003') y algunos nodos de sistematizacion no tienen contenido (total 0 con nota).
 El server NO oculta nada: trae 'total', 'pagina', 'tamano_pagina' (variable: hasta 20 filas por bloque combinado; 10 por inventario), 'index' GLOBAL 0-based continuo entre paginas, y 'nota' cuando aplica. Las filas con fecha_sentencia < 1990 viajan COMPLETAS marcadas 'fecha_sentencia_sospechosa': true.
-MERGE entre inventarios: 'total' es la SUMA de ambos (cota superior; los documentos repetidos en ambos se omiten de las filas con su conteo en 'nota'); 'paginas' es el maximo de ambos; el inventario historico no excede la pagina 1000 de su motor (despues de esa pagina el bloque solo trae sistematizacion; lo declara la 'nota'). En busqueda_avanzada la sistematizacion SI pagina mas alla de 1000 (path SQL del portal), mientras el inventario historico se agota en 1000. La respuesta NO distingue inventarios: cada fila trae los campos que su fuente publica (las historicas no traen 'sentido/distrito/sala/tesauro/slug' y su texto completo viene en 'texto' cuando la busqueda es por texto).
+MERGE entre inventarios: 'total' es la SUMA de ambos (cota superior; los documentos repetidos en ambos se omiten de las filas con su conteo en 'nota'); 'paginas' es el maximo de ambos; el inventario historico no excede la pagina 1000 de su motor (despues de esa pagina el bloque solo trae sistematizacion; lo declara la 'nota'). En busqueda_avanzada la sistematizacion SI pagina mas alla de 1000 (path SQL del portal), mientras el inventario historico se agota en 1000. El 'index' global RESERVA 10 posiciones por inventario en cada pagina: si un inventario se agota o no participa, quedan HUECOS de index entre paginas (usa 'pagina'+'index' como direccion, no esperes consecutivos raros). La respuesta NO distingue inventarios: cada fila trae los campos que su fuente publica (las historicas no traen 'sentido/distrito/sala/tesauro/slug' y su texto completo viene en 'texto' cuando la busqueda es por texto).
 Politica: cada tool responde dentro de TCJ_TOOL_TIMEOUT (300 s) o devuelve {ok:false, error, pista}. Toda respuesta exitosa trae 'ms' (milisegundos). Fuente publica del TC: https://jurisprudencia.sedetc.gob.pe/sistematizacion-jurisprudencial/busqueda (NO oficial).
 """
 )
 
 INSTRUCCIONES += _linea_update()
 
-mcp = FastMCP("Jurisprudencia del Tribunal Constitucional (No oficial)",
+mcp = FastMCP("Buscador de Jurisprudencia del Tribunal Constitucional (No oficial)",
               instructions=INSTRUCCIONES, stateless_http=True)
 
 
@@ -669,14 +669,15 @@ async def buscar_sentencias(search: str, page: int = 1, modo: str | None = None)
                 "pista": "usa: " + ", ".join(sorted(filtros_h)), "ms": _ms_desde(t0)}
     try:
         async def _impl() -> dict[str, Any]:
-            # inventario actual (Elasticsearch)
-            data = await _api("/visitor/sentencia/busqueda", params={"search": _plain(q), "page": page})
-            filas = await _filas_de(data, page)
-            # inventario historico (misma pagina, motor propio)
+            # ambos inventarios EN PARALELO (la misma pagina: verificado; corta la latencia al medio)
             hist: dict[str, Any] | None = None
             if MERGE_HISTORICO:
-                pv = {"search": q, "filtro": filtros_h[filtro_p], "pg": page}
-                hist = await _hist_buscar(pv, page)
+                coro_act = _api("/visitor/sentencia/busqueda", params={"search": _plain(q), "page": page})
+                coro_hist = _hist_buscar({"search": q, "filtro": filtros_h[filtro_p], "pg": page}, page)
+                data, hist = await asyncio.gather(coro_act, coro_hist)
+            else:
+                data = await _api("/visitor/sentencia/busqueda", params={"search": _plain(q), "page": page})
+            filas = await _filas_de(data, page)
             notas: list[str] = []
             hist_vacio = (not hist or (not hist.get("filas") and not hist.get("total")))
             if habia_comillas:
@@ -774,12 +775,9 @@ async def busqueda_avanzada(search: str | None = None,
                         ids.append(p.strip() if re.fullmatch(r"-?\d+", p.strip())
                                    else str(await _resolver("palabras", p, "palabras")))
                 params["palabras"] = ",".join(ids)
-            data = await _api("/visitor/sentencia/busqueda/avanzada", params=params)
-            filas = await _filas_de(data, page)
-            # inventario historico de la misma pagina (merge)
-            sub = {"error": "", "filas": [], "total": None}
-            fecha_nota = ""
+            # params del inventario historico (resueltos ANTES del gather)
             pv: dict[str, Any] | None = None
+            fecha_nota = ""
             if MERGE_HISTORICO and page <= MAX_PAGINAS_MOTOR:
                 if _limpia(search):
                     # el motor historico solo acepta texto (+filtro+pg: verificado)
@@ -808,8 +806,15 @@ async def busqueda_avanzada(search: str | None = None,
                     tiene_criterio = any(k in pv for k in ("numexpediente", "demandante", "demandado", "idtipoproceso", "anopublica"))
                     if not tiene_criterio:
                         pv = None
-                if pv is not None:
-                    sub = await _hist_buscar(pv, page)
+            # ambos inventarios EN PARALELO (corta la latencia al medio)
+            if pv is not None:
+                coro_act = _api("/visitor/sentencia/busqueda/avanzada", params=params)
+                coro_hist = _hist_buscar(pv, page)
+                data, sub = await asyncio.gather(coro_act, coro_hist)
+            else:
+                sub = {"error": "", "filas": [], "total": None}
+                data = await _api("/visitor/sentencia/busqueda/avanzada", params=params)
+            filas = await _filas_de(data, page)
             piezas: list[str] = []
             if fecha_nota:
                 piezas.append(fecha_nota)

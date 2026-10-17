@@ -1,9 +1,9 @@
 {
   "manifest_version": "0.4",
-  "name": "tc-juris-mcp",
-  "display_name": "Jurisprudencia del Tribunal Constitucional (No oficial)",
-  "version": "0.3.0",
-  "description": "MCP local para la sistematizacion jurisprudencial del Tribunal Constitucional del Peru (jurisprudencia.sedetc.gob.pe). No oficial.",
+  "name": "juris-sedetc-mcp",
+  "display_name": "Buscador de Jurisprudencia del Tribunal Constitucional (No oficial)",
+  "version": "0.4.0",
+  "description": "MCP local para el buscador de jurisprudencia del Tribunal Constitucional del Peru (jurisprudencia.sedetc.gob.pe). No oficial.",
   "long_description": "Servidor MCP local para la Sistematizacion Jurisprudencial del Tribunal Constitucional del Peru. Vista UNICA DUAL: las herramientas de busqueda consultan SIEMPRE los dos inventarios del TC (sistematizacion actual 2004-2026 via Elasticsearch + inventario historico de resoluciones 2001-2018 con su motor propio) y fusionan los resultados en una sola respuesta con dedup de documentos repetidos, index GLOBAL 0-based continuo entre paginas (formula cerrada stateless) y total/paginas de la combinacion. Busqueda en TEXTO COMPLETO con comodin '*'; semantica 'todas/algunas/frase' para el inventario historico; busqueda AVANZADA con todos los filtros (expediente, demandante/demandado, fecha exacta o RANGO, sentido, distrito, sala, tipo, palabras claves por id, tipo de proceso del inventario historico); resultados por SISTEMATIZACION (precedentes vinculantes, tipos de proceso) y por TESAURO de conceptos (sentencias/autos/interlocutorias, arboles navegables con counts); catalogos EXACTOS (224 tipos, 115 distritos, 5 salas, 417 sentidos, 29603 palabras claves, 7 procesos); ficha completa por slug con fundamentos COMPLETOS (nunca truncados); cada fila trae la URL PUBLICA del PDF del TC (resuelta por el server tambien para el historico via openurl: los PDFs son de tc.gob.pe, listos para cualquier tool de fetch/descarga del agente; el servidor nunca guarda archivos). Cada respuesta trae 'ms'; toda tool responde (o error {ok, error, pista}) dentro de TCJ_TOOL_TIMEOUT=300 s. Los bugs y quirks verificados de ambos motores estan documentados en las instrucciones y reportados en 'nota' (texto+distrito=0 en la sistematizacion con compensacion del historico; cap ES >= 10000; interlocutorias vacio; fechas espurias 1969; catalogo de distritos con filas espurias). Proyecto NO oficial, Apache-2.0.",
   "author": {
     "name": "pipaacebedo",
@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/pipaacebedo/tc-juris-mcp.git"
+    "url": "https://github.com/pipaacebedo/juris-sedetc-mcp.git"
   },
   "license": "Apache-2.0",
   "keywords": [
