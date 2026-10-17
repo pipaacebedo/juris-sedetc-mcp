@@ -4,11 +4,10 @@
 
 Busca en el TEXTO COMPLETO (Elasticsearch) y en los filtros avanzados (SQL) del portal del TC: expediente, demandante/demandado, fecha (o rango), sentidos, distritos, salas, tipos y palabras claves sistematizadas; resultados por SISTEMATIZACION (precedentes vinculantes, tipos de proceso...) y por TESAURO de conceptos (sentencias/autos/interlocutorias); ficha completa por slug con fundamentos COMPLETOS; y descarga del PDF publicado por el TC.
 
-Conexion directa (httpx), sin navegador y sin credenciales: todo el contenido consultado es publico. El servidor nunca guarda archivos (salvo descargar_pdf) y NUNCA trunca datos. Proyecto NO oficial, sin afiliacion con el TC ni el Estado peruano.
+Conexion directa (httpx), sin navegador y sin credenciales: todo el contenido consultado es publico. El servidor nunca guarda archivos: entrega las URLs publicas de los PDFs en cada fila ('url_pdf'). NUNCA trunca datos. Proyecto NO oficial, sin afiliacion con el TC ni el Estado peruano.
 """
 
 import asyncio
-import hashlib
 import json
 import logging
 import os
@@ -32,8 +31,6 @@ HTTP_TIMEOUT = float(os.getenv("TCJ_TIMEOUT", "60"))
 TOOL_TIMEOUT = float(os.getenv("TCJ_TOOL_TIMEOUT", "300"))
 CACHE_TTL = float(os.getenv("TCJ_CACHE_TTL", "1800"))
 UPDATE_CHECK = os.getenv("TCJ_UPDATE_CHECK", "1").strip() not in ("0", "false", "no")
-DOWNLOADS_DIR = Path(os.getenv("TCJ_DOWNLOADS", str(Path.home() / "Downloads")))
-PDF_CAP_BYTES = int(os.getenv("TCJ_PDF_CAP_MB", "20")) * 1024 * 1024
 
 TAM_PAGINA = 10  # ambos motores sirven 10 filas por vista (verificado)
 MAX_PAGINAS_MOTOR = 1000  # cap IDENTICO en ambos motores (verificado)
@@ -86,7 +83,7 @@ INSTRUCCIONES = (
   c) resultados_sistematizacion(ids) y resultados_tesauro(ids, tipo): las sistematizaciones TEMATICAS del TC (6 ramas: precedentes vinculantes, tipos de procesos...) y el TESAURO de conceptos (derechos fundamentales/procesos de tutela...) con sub-arboles 'sentencias'. Obtén los 'ids' EXACTOS en listar_sistematizaciones y listar_tesauro (arbol NAVEGABLE: raices + parent_id/depth; nunca entrega el arbol entero de un bote).
 1 FILTROS EXACTOS - listar_filtros (tipo/distritos/salas/sentidos/tipos_tesauro y 'procesos'), listar_tesauro (arboles con counts), listar_sistematizaciones (arbol) y listar_palabras (catalogo de 29 603 palabras). En busqueda_avanzada puedes pasar NOMBRE o ID; el server resuelve el id contra el catalogo y si no matchea devuelve error con ejemplos (JAMAS un filtro silencioso).
 2 FICHA - detalle_sentencia(slug) trae el expediente, sentencia, demandantes, fechas, sentidos, relacion de tesaurio, y los FUNDAMENTOS COMPLETOS (la decision; NUNCA se trunca) + la URL del PDF.
-3 DOCUMENTOS - descargar_pdf(url|slug) guarda el PDF publicado por el TC en la carpeta de descargas (cap 20 MB, NUNCA trunca; se puede subir con TCJ_PDF_CAP_MB).
+3 DOCUMENTOS - cada fila y cada ficha trae 'url_pdf' (URL PUBLICA del PDF del TC, resuelta por el server tambien para el inventario historico): descarga con tu tool de fetch/descarga; los PDFs son publicos y directos. El server nunca guarda archivos.
 BUGS VERIFICADOS del backend del TC (no son del server): (i) search+id_sentencia_distrito juntos devuelven 0 aunque por separado funcionen; (ii) el buscador simple a veces devuelve el cap '>= 10000' para busquedas amplias: afina con busqueda_avanzada; (iii) 'tesauro_inter' (interlocutorias) esta vacio en el backend (counts 0); (iv) COMILLAS NO: una frase entre comillas en el buscador simple dispara el cap '>= 10000' (el server quitara las comillas y buscara la frase sin ellas; el indice NO soporta frases exactas); (v) FECHA EXACTA = ANIO: '2020-01-01' degrada al ano 2020 COMPLETO (136 = rango '2020-01-01,2020-12-31'); para un dia usa rango 'D,D'; (vi) numero_expediente funciona PARCIAL por subcadena ('00148' agrupa 00148-2026-HC, 00148-2025-AA...); (vii) 'palabras' multiples son OR (union), no AND; (viii) 'count_subarbol' de listar_tesauro es acumulado del subarbol y NO es el 'total' directo de resultados_tesauro (hoja si cuadra; nodo agregado difiere: ej raiz 63493 vs 7); (ix) el 'search' de resultados_sistematizacion opera sobre el TEXTO del fallo, no sobre nombres de partes (usa busqueda_avanzada con nombre_demandante); (x) el corpus contiene fechas espurias '1969-12-31' (epoch 0 del backend): desconfia de fechas de sentencia de 1969; (xi) el 'code' de los nodos del tesauro puede no cuadrar con su posicion en el arbol (dato upstream del TC): navega por 'id'; (xii) el filtro id_sentencia_distrito SOLO puede NO aplicarse en el backend (estres v3: id 3 devolvio filas de otros distritos): combina con fecha_publicacion/search/tipo/sala o confirma el campo 'distrito' de cada fila; (xiii) el catalogo de distritos incluye filas ESPURIAS upstream (nombres tipo '09-06-2003') y algunos nodos de sistematizacion no tienen contenido (total 0 con nota).
 El server NO oculta nada: trae 'total', 'pagina', 'tamano_pagina' (variable: hasta 20 filas por bloque combinado; 10 por inventario), 'index' GLOBAL 0-based continuo entre paginas, y 'nota' cuando aplica. Las filas con fecha_sentencia < 1990 viajan COMPLETAS marcadas 'fecha_sentencia_sospechosa': true.
 MERGE entre inventarios: 'total' es la SUMA de ambos (cota superior; los documentos repetidos en ambos se omiten de las filas con su conteo en 'nota'); 'paginas' es el maximo de ambos; el inventario historico no excede la pagina 1000 de su motor (despues de esa pagina el bloque solo trae sistematizacion; lo declara la 'nota'). En busqueda_avanzada la sistematizacion SI pagina mas alla de 1000 (path SQL del portal), mientras el inventario historico se agota en 1000. La respuesta NO distingue inventarios: cada fila trae los campos que su fuente publica (las historicas no traen 'sentido/distrito/sala/tesauro/slug' y su texto completo viene en 'texto' cuando la busqueda es por texto).
@@ -968,74 +965,6 @@ async def detalle_sentencia(slug: str) -> dict[str, Any]:
             out["ms"] = _ms_desde(t0)
             return out
         return await con_watchdog(_impl(), "detalle_sentencia")
-    except (ErrorSite, ErrorValidacion) as e:
-        return _envolver(e, t0)
-
-
-@mcp.tool(title="Descargando PDF de sentencia")
-async def descargar_pdf(url: str | None = None, slug: str | None = None) -> dict[str, Any]:
-    """Descarga el PDF de una resolucion del TC a la carpeta de descargas (env TCJ_DOWNLOADS; default ~/Downloads). Acepta 'url' (url_pdf de la fila/ficha) o 'slug' (resuelve la ficha y toma su url_archivo). Cap 20 MB (env TCJ_PDF_CAP_MB); NUNCA trunca: si excede, error con el tamano.
-
-    Args:
-        url: URL del PDF (preferente).
-        slug: alternativa para resolver la URL desde la ficha.
-
-    Devuelve:
-        {'ok', 'ruta', 'bytes', 'sha256', 'url', 'ms'}: archivo guardado. {'ok': False, 'error', 'pista'}
-        frente a 404/movido/cap.
-    """
-    t0 = time.perf_counter()
-    if not _limpia(url) and not _limpia(slug):
-        return {"ok": False, "error": "debes pasar 'url' o 'slug'",
-                "pista": "usa la 'url_pdf'/'url_archivo' de las filas o el 'slug' de la ficha",
-                "ms": _ms_desde(t0)}
-    try:
-        async def _impl() -> dict[str, Any]:
-            if _limpia(slug) and not _limpia(url):
-                d = await _api("/visitor/sentencia/" + _limpia(slug).lstrip("/"))
-                data = d.get("data")
-                if not data:
-                    raise ErrorValidacion(f"el backend no tiene la ficha de {slug!r}")
-                src = data.get("_source", data) if isinstance(data, dict) else data
-                u = (src or {}).get("url_archivo") or ""
-            else:
-                u = _limpia(url)
-            if not u:
-                return {"ok": False, "error": f"la ficha {slug!r} no expone url del PDF",
-                        "pista": "usa la fila/ficha con url_pdf; si no, descarga manual desde el portal del TC",
-                        "ms": _ms_desde(t0)}
-            if not u.lower().startswith("http"):
-                return {"ok": False, "error": "url malformada",
-                        "pista": "debe ser 'https://...'", "ms": _ms_desde(t0)}
-            c = await _get_client()
-            r = await c.get(u)
-            ctype = r.headers.get("content-type", "")
-            if r.status_code != 200 or "pdf" not in ctype.lower():
-                return {"ok": False,
-                        "error": f"la URL no sirvio un PDF (HTTP {r.status_code}, content-type {ctype!r})",
-                        "pista": "el PDF pudo moverse; prueba la URL en el navegador o revisa la ficha",
-                        "ms": _ms_desde(t0)}
-            raw = r.content
-            if len(raw) > PDF_CAP_BYTES:
-                return {"ok": False, "error": f"el PDF pesa {len(raw)} bytes y supera el cap de {PDF_CAP_BYTES}",
-                        "pista": "NADA fue truncado; sube TCJ_PDF_CAP_MB o descarga manual; la URL viene en la respuesta",
-                        "url": u, "tamano_bytes": len(raw), "cap_bytes": PDF_CAP_BYTES,
-                        "ms": _ms_desde(t0)}
-            DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
-            parte = u.rstrip("/").split("/")[-1].split("?")[0] or "sentencia.pdf"
-            if not parte.lower().endswith(".pdf"):
-                parte += ".pdf"
-            parte = re.sub(r"[^A-Za-z0-9_.\-]+", "_", parte)
-            ruta = DOWNLOADS_DIR / parte
-            n = 1
-            while ruta.exists():
-                ruta = DOWNLOADS_DIR / (parte[:-4] + f"_{n}.pdf")
-                n += 1
-            ruta.write_bytes(raw)
-            return {"ok": True, "ruta": str(ruta), "bytes": len(raw),
-                    "sha256": hashlib.sha256(raw).hexdigest(), "url": u,
-                    "ms": _ms_desde(t0)}
-        return await con_watchdog(_impl(), "descargar_pdf")
     except (ErrorSite, ErrorValidacion) as e:
         return _envolver(e, t0)
 

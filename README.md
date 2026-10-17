@@ -4,7 +4,7 @@
 
 **Servidor MCP local para la Sistematizacion Jurisprudencial del Tribunal Constitucional del Peru** —{ruta}→ `https://jurisprudencia.sedetc.gob.pe/sistematizacion-jurisprudencial/busqueda` (API oficial `jurisbackend.sedetc.gob.pe/api`). NO oficial.
 
-## Que hace (10 tools)
+## Que hace (9 tools)
 
 | Tool | Title | Uso |
 |---|---|---|
@@ -13,7 +13,6 @@
 | `resultados_sistematizacion` | Buscando por sistematizacion | si vienen por SISTEMATIZACION tematica del TC (6 ramas: precedentes vinculantes, tipos de proceso...). |
 | `resultados_tesauro` | Buscando por tesaurio | si vienen por arbol de conceptos del TESAURO (`sentencias`/`autos`/`interlocutorias`). |
 | `detalle_sentencia` | Obteniendo ficha de sentencia | ficha COMPLETA por slug: fundamentos INTEGRALES (la decision; sin truncar) + URL del PDF. |
-| `descargar_pdf` | Descargando PDF de sentencia | guarda el PDF publicado por el TC en `~/Downloads` (cap 20 MB configurable, nunca trunca). |
 | `listar_filtros` | Listando filtros | tipo (224), distritos (115), salas (5), sentidos (417), tipos de tesaurio (3), `procesos` (7 del inventario historico). |
 | `listar_tesauro` | Listando arboles del tesaurio | arbol completo con counts por nodo. |
 | `listar_sistematizaciones` | Listando sistematizaciones | arbol completo de la sistematizacion (6 ramas + children). |
@@ -26,7 +25,7 @@
 - **`index` GLOBAL** 0-based continuo entre paginas; 10 filas por pagina (dato del backend).
 - **Watchdog** por tool: `TCJ_TOOL_TIMEOUT=300` s (toda tool responde, o error con pista; nunca cuelga).
 - **Resolucion id/nombre**: los buses aceptan ids o nombres EXACTOS del catalogo (y si el nombre es ambiguo —'Lima' matchea Lima/Lima Norte/Lima Este/Lima Sur/...— devuelve el error con los ejemplos).
-- **Sin truncamiento** de datos (fundamentos completos); PDF con cap declarado (si supera, error con tamaños).
+- **Sin truncamiento** de datos (fundamentos y textos completos); los PDFs viajan como **URLs públicas directas** en cada fila (`url_pdf`, resueltas server-side también para el inventario histórico): el agente las descarga con su propia tool de fetch/descarga; el servidor nunca guarda archivos.
 - **Catalogos en cache** 30 min en-process con lock (TTL configurable `TCJ_CACHE_TTL=1800`).
 - **Canal de actualizacion**: el server consulta GitHub (`pipaacebedo/tc-juris-mcp`) al arrancar y agrega la linea `UPDATE DISPONIBLE` a sus instrucciones si existe una version mayor (desactivable con `TCJ_UPDATE_CHECK=0`).
 
@@ -41,25 +40,26 @@
 
 ## Instalacion
 
-Con [MCPB](https://github.com/anthropics/mcpb) — descarga `tc-juris-mcp-0.1.3.mcpb` desde [Releases](https://github.com/pipaacebedo/tc-juris-mcp/releases) y arrastralo a tu harness.
+Con [MCPB](https://github.com/anthropics/mcpb) — descarga `tc-juris-mcp-0.3.0.mcpb` desde [Releases](https://github.com/pipaacebedo/tc-juris-mcp/releases) y arrastralo a tu harness.
 
 Manual: `pip install -e .` y agrega el server stdio en tu harness:
 
 ```bash
-uv run --directory /ruta/a/tc-juris-mcp-0.1.0.mcpb  server.py
+uv run --directory /ruta/a/tc-juris-mcp-0.3.0.mcpb  server.py
 ```
 
 ## Variables de entorno
 
 | Var | Default | Uso |
 |---|---|---|
-| `TCJ_BASE` | API oficial | base de la API del TC |
-| `TCJ_TIMEOUT` | 60 | timeout HTTP por$peticion |
+| `TCJ_BASE` | API oficial | base de la API de la sistematizacion |
+| `TCJ_HISTORICO_BASE` | motor historico oficial | base del inventario historico de resoluciones |
+| `TCJ_HISTORICO_TIMEOUT` | 40 | timeout HTTP del motor historico |
+| `TCJ_MERGE` | 1 | desactivar la integracion del historico con `0` |
+| `TCJ_TIMEOUT` | 60 | timeout HTTP por peticion (sistematizacion) |
 | `TCJ_TOOL_TIMEOUT` | 300 | watchdog por llamada de tool |
 | `TCJ_CACHE_TTL` | 1800 | duracion de cache de catalogos |
 | `TCJ_UPDATE_CHECK` | 1 | desactivar chequeo de version con `0` |
-| `TCJ_DOWNLOADS` | `~/Downloads` | destino de `descargar_pdf` |
-| `TCJ_PDF_CAP_MB` | 20 | cap bytes del PDF (si supera, error con tamano real) |
 
 ## Nota legal
 
@@ -68,6 +68,10 @@ Proyecto **NO oficial**, sin afiliacion con el Tribunal Constitucional del Peru 
 ---
 
 ### Changelog
+
+#### 0.3.0
+- **RETIRO de `descargar_pdf`**: los PDFs del TC son URLs publicas directas (`tc.gob.pe`) y ya viajan resueltas en cada fila (`url_pdf`, tambien para el inventario historico via `openurl`): la descarga es responsabilidad de la tool de fetch/descarga del agente. El server vuelve a la invariante de la familia "nunca guarda archivos" (como juris-pj-mcp y seace). 9 tools.
+- Limpios los envs de descarga (`TCJ_DOWNLOADS`/`TCJ_PDF_CAP_MB`).
 
 #### 0.2.2
 - `ms` presente en TODAS las respuestas (estres v4 M1: faltaba en las 2 tools de busqueda del merge).
