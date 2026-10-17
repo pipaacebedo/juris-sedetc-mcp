@@ -66,13 +66,13 @@ Y añade a la configuración de servidores MCP de tu agente:
   "mcpServers": {
     "juris-sedetc-mcp": {
       "command": "uv",
-      "args": ["run", "--directory", "{ruta}/juris-sedetc-mcp-oss", "server.py"]
+      "args": ["run", "--directory", "{ruta}/juris-sedetc-mcp", "server.py"]
     }
   }
 }
 ```
 
-> Reemplaza `{ruta}` por la carpeta local donde dejaste el proyecto (ej. `C:/mcp` en Windows o `/opt/mcp` en Linux/macOS).
+> Reemplaza `{ruta}` por la carpeta donde clonaste/descomprimiste el proyecto (ej. `C:/mcp` en Windows o `/opt/mcp` en Linux/macOS): `server.py` vive en la RAIZ del repositorio, así que tras clonar queda en `{ruta}/juris-sedetc-mcp/server.py`.
 
 El servidor envía sus instrucciones de uso por el handshake MCP: el agente sabe cómo buscar y leer sin prompts adicionales.
 
