@@ -2,7 +2,7 @@
   "manifest_version": "0.4",
   "name": "tc-juris-mcp",
   "display_name": "Jurisprudencia del Tribunal Constitucional (No oficial)",
-  "version": "0.1.4",
+  "version": "0.2.2",
   "description": "MCP local para la sistematizacion jurisprudencial del Tribunal Constitucional del Peru (jurisprudencia.sedetc.gob.pe). No oficial.",
   "long_description": "Servidor MCP local para la Sistematizacion Jurisprudencial del Tribunal Constitucional del Peru. Busqueda en TEXTO COMPLETO (Elasticsearch del TC, con comodin '*'; el servidor normaliza tildes porque el indice no matchea acentos), busqueda AVANZADA con todos los filtros del portal (expediente, demandante/demandado, fecha exacta o RANGO, sentido, distrito, sala, tipo, palabras claves por id), resultados por SISTEMATIZACION (precedentes vinculantes, tipos de proceso) y por TESAURO de conceptos (sentencias/autos/interlocutorias, con arboles y counts), catalogos EXACTOS (224 tipos, 115 distritos, 5 salas, 417 sentidos, 29603 palabras claves), ficha completa por slug con fundamentos COMPLETOS (nunca truncados) y descarga del PDF publicado por el TC (cap declarado 20 MB, nunca truncamiento silencioso). Cada respuesta trae 'ms'; toda tool responde (o error {ok, error, pista}) dentro de TCJ_TOOL_TIMEOUT=300 s; index GLOBAL 0-based continuo entre paginas (10 filas por pagina). Los bugs verificados del backend del TC estan documentados en las instrucciones y reportados en 'nota' (search+distrito=0; cap ES >= 10000; tesauro_inter vacio). Proyecto NO oficial, Apache-2.0.",
   "author": {

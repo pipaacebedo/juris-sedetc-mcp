@@ -8,13 +8,13 @@
 
 | Tool | Title | Uso |
 |---|---|---|
-| `buscar_sentencias` | Buscando sentencias | TEXTO COMPLETO (Elasticsearch del TC). Normaliza tildes ('pension' matchea, 'Pensión' NO hace match sin normalizar). Comodin `*`. Cap ES: 1000 paginas. |
-| `busqueda_avanzada` | Buscando con filtros avanzados | expediente, demandante/demandado, fecha EXACTA o RANGO (`2020-01-01,2020-12-31`), sentido, distrito, sala, tipo, palabras claves (ids). Sin cap practico de paginas (74k+ filas). |
+| `buscar_sentencias` | Buscando sentencias | TEXTO COMPLETO en AMBOS inventarios (sistematizacion actual + historico 2001-2018) fusionados con dedup. Normaliza tildes; comodin `*`; `modo`='todas'/'algunas'/'frase'; cap 1000 paginas. |
+| `busqueda_avanzada` | Buscando con filtros avanzados | expediente, demandante/demandado, fecha EXACTA o RANGO, sentido, distrito, sala, tipo, palabras (ids), `proceso` (historico). Merge dual con dedup. |
 | `resultados_sistematizacion` | Buscando por sistematizacion | si vienen por SISTEMATIZACION tematica del TC (6 ramas: precedentes vinculantes, tipos de proceso...). |
 | `resultados_tesauro` | Buscando por tesaurio | si vienen por arbol de conceptos del TESAURO (`sentencias`/`autos`/`interlocutorias`). |
 | `detalle_sentencia` | Obteniendo ficha de sentencia | ficha COMPLETA por slug: fundamentos INTEGRALES (la decision; sin truncar) + URL del PDF. |
 | `descargar_pdf` | Descargando PDF de sentencia | guarda el PDF publicado por el TC en `~/Downloads` (cap 20 MB configurable, nunca trunca). |
-| `listar_filtros` | Listando filtros | tipo (224), distritos (115), salas (5), sentidos (417), tipos de tesaurio (3). |
+| `listar_filtros` | Listando filtros | tipo (224), distritos (115), salas (5), sentidos (417), tipos de tesaurio (3), `procesos` (7 del inventario historico). |
 | `listar_tesauro` | Listando arboles del tesaurio | arbol completo con counts por nodo. |
 | `listar_sistematizaciones` | Listando sistematizaciones | arbol completo de la sistematizacion (6 ramas + children). |
 | `listar_palabras` | Listando palabras clave | catalogo de 29 603 palabras claves, filtro LOCAL letra/contiene (alimenta `busqueda_avanzada(palabras=)`). |
@@ -68,6 +68,26 @@ Proyecto **NO oficial**, sin afiliacion con el Tribunal Constitucional del Peru 
 ---
 
 ### Changelog
+
+#### 0.2.2
+- `ms` presente en TODAS las respuestas (estres v4 M1: faltaba en las 2 tools de busqueda del merge).
+- Nota cuando la combinacion de filtros no aplica al inventario historico (estres v4 H3; criterios del historico: expediente/partes/año/tipo de proceso).
+- Nota de vacio dual: 'sin filas en ninguno de los dos inventarios' (estres v4 H5).
+- Instrucciones: aclarado el paging profundo de busqueda_avanzada (>1000 paginas de la sistematizacion; historico agotado en 1000) (estres v4 M2/H4).
+- Texto: reflow completo (cero cortes artificiales; INSTRUCCIONES en parrafos reales).
+
+#### 0.2.1
+- Sin cortes artificiales: las INSTRUCCIONES y las docstrings de las 10 tools vuelven a ser texto natural (cada salto de linea es parrafo o viñeta real; jamas una oracion partida en literales o envuelta a mitad); corregido el mojibake (`\Sλιοος`) que disparaba `SyntaxWarning` en el arranque del harness, mas typos de la docstring de `busqueda_avanzada`.
+- Auditoria de texto ampliada (regresion): detecta cortes de literal (`" \n "` y variantes `f"`), envolturas de docstring a mitad de oracion, escapes invalidos al compilar y mojibake griego/cirilico/CJK; corre en cada build.
+
+#### 0.2.0
+- **VISTA UNICA DUAL**: `buscar_sentencias` y `busqueda_avanzada` consultan SIEMPRE ambos inventarios del TC (sistematizacion actual 2004-2026 + inventario historico de resoluciones 2001-2018, motor propio HTTP) y fusionan en UNA respuesta: bloque con filas de la sistematizacion primero y del historico despues, `index` GLOBAL continuo (formula cerrada stateless), `total` = suma, `paginas` = max, `tamano_pagina` variable (hasta 20), **dedup de documentos repetidos** (conteo en 'nota').
+- Traduccion de filtros: expediente/partes/año de publicacion singular/'proceso' aplican al historico; sentido/distrito/sala/palabras solo a la sistematizacion (se ignoran en el historico, como verificado).
+- Param `modo` ('todas'/'algunas'/'frase' — semantica S/A/F del motor historico que SI soporta multi-palabra) y param `proceso` (7 tipos; catalogo `listar_filtros(categoria='procesos')`).
+- Filas historicas: `texto` (narrativa de la tarjeta en busquedas por texto), fechas ISO de publicacion/ingreso, `score` y `url_pdf` resuelto server-side via `openurl` (el PDF ya es tc.gob.pe: `descargar_pdf` funciona igual para ambas fuentes).
+- Motor historico: tildes normalizadas; `search` solo puede ir sin otros filtros (el motor crashea: 500) — el server lo aterriza; cap identico de 1000 paginas (despues, solo sistematizacion; declarado en 'nota').
+- Env nuevas: `TCJ_HISTORICO_BASE`, `TCJ_HISTORICO_TIMEOUT`, `TCJ_MERGE` (0 desactiva la integracion historica).
+- La nota del bug texto+distrito ahora declara que las filas del bloque vienen del inventario historico (el bug afecta solo a la sistematizacion).
 
 #### 0.1.4
 - Distrito aislado (estres v3, MAYOR): `busqueda_avanzada` con SOLO `id_sentencia_distrito` devuelve nota de advertencia (el backend del TC puede no aplicar ese filtro aislado: filas de otros distritos); instrucciones (xii).

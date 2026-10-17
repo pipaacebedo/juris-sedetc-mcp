@@ -1,6 +1,6 @@
 [project]
 name = "tc-juris-mcp"
-version = "0.1.4"
+version = "0.2.2"
 description = "MCP local para la sistematizacion jurisprudencial del Tribunal Constitucional del Peru (jurisprudencia.sedetc.gob.pe). No oficial."
 readme = "README.md"
 requires-python = ">=3.11"
